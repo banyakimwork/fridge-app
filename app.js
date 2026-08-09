@@ -14,6 +14,8 @@ const today = () => toStr(new Date());
 const diffDays = (from, to) => Math.round((parseD(to) - parseD(from)) / 86400000);
 const addDays = (s, n) => { const d = parseD(s); d.setDate(d.getDate() + n); return toStr(d); };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+/* 올해 12월 31일. 소스·술처럼 사실상 안 상하는 것에 날짜를 하나 박아두기 위한 값 */
+const endOfYear = () => `${new Date().getFullYear()}-12-31`;
 
 /* ---------------- 상태 ---------------- */
 const DEFAULT_SETTINGS = { soonDays: 3, oldDays: 90, veryOldDays: 180, lastBackup: null, lastUnit: 'fridge' };
@@ -57,6 +59,8 @@ window.commitState = (opts) => save(opts);
 window.toast = (m) => toastFn(m);
 window.afterSync = () => {
   if (busy()) return;               // 편집 중이면 화면을 갈아끼우지 않는다
+  // 시트에서 받아온 것 중 분류가 안 된 게 있으면 여기서 정리한다
+  if (typeof repairCategories === 'function' && repairCategories()) save({ silent: true });
   checkBackupBanner();
   refresh();
 };
@@ -306,11 +310,11 @@ function removeItem(id, reason) {
 }
 
 /* ---------------- 재료 등록/수정 ---------------- */
-let edit = { id: null, compartmentId: null, dateTouched: false };
+let edit = { id: null, compartmentId: null, dateTouched: false, catTouched: false };
 
 function openEditor({ id = null, compartmentId = null } = {}) {
   const it = id ? itemById(id) : null;
-  edit = { id: id, compartmentId: it ? it.compartmentId : compartmentId, dateTouched: !!it };
+  edit = { id: id, compartmentId: it ? it.compartmentId : compartmentId, dateTouched: !!it, catTouched: !!it };
 
   // 칸 select
   const sel = $('#ed-comp');
@@ -351,7 +355,12 @@ function syncDateField(it) {
   if (c.track === 'expiry') {
     $('#ed-date-label').textContent = '언제까지';
     $('#ed-date').value = it ? (it.expiresAt || addDays(today(), 7)) : ($('#ed-date').value || addDays(today(), 7));
-    quick.innerHTML = [3, 5, 7, 14, 30].map((n) => `<button type="button" data-days="${n}">+${n}일</button>`).join('');
+    /* 「오늘」은 오늘까지 먹어야 하는 것, 「연말까지」는 사실상 안 상하는 것(소스·술 따위).
+       날짜 피커를 열지 않고 끝내는 게 목적이라 양 끝을 같이 둔다. */
+    quick.innerHTML =
+      `<button type="button" data-days="0">오늘</button>`
+      + [3, 5, 7, 14, 30].map((n) => `<button type="button" data-days="${n}">+${n}일</button>`).join('')
+      + `<button type="button" data-date="${endOfYear()}">연말까지</button>`;
     $('#ed-hint').textContent = '재료 이름을 고르면 통상 보관일로 날짜가 미리 채워집니다. 맞으면 그대로 저장하세요.';
   } else {
     $('#ed-date-label').textContent = '넣은 날';
@@ -364,11 +373,9 @@ function syncDateField(it) {
 $('#ed-comp').addEventListener('change', () => { edit.dateTouched = false; syncDateField(edit.id ? itemById(edit.id) : null); });
 $('#ed-date').addEventListener('input', () => { edit.dateTouched = true; });
 $('#ed-quick').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-days]');
+  const b = e.target.closest('[data-days],[data-date]');
   if (!b) return;
-  const n = Number(b.dataset.days);
-  const c = compById($('#ed-comp').value);
-  $('#ed-date').value = c.track === 'expiry' ? addDays(today(), n) : addDays(today(), n);
+  $('#ed-date').value = b.dataset.date ? b.dataset.date : addDays(today(), Number(b.dataset.days));
   edit.dateTouched = true;
   $('#ed-quick').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
 });
@@ -385,7 +392,10 @@ $('#ed-name').addEventListener('input', () => {
   box.innerHTML = hits.map((p) => `<button type="button" data-pick="${esc(p.name)}">${esc(p.name)}</button>`).join('');
   const exact = S.presets.find((p) => p.name === q);
   if (exact) applyPreset(exact);
+  else autoCategory();          // 사전에 없는 이름도 카테고리를 찍어준다
 });
+/* 손으로 고르면 그 뒤로는 자동 추론이 덮지 않는다 */
+$('#ed-cat').addEventListener('change', () => { edit.catTouched = true; });
 $('#ed-suggest').addEventListener('click', (e) => {
   const b = e.target.closest('[data-pick]');
   if (!b) return;
@@ -394,6 +404,86 @@ $('#ed-suggest').addEventListener('click', (e) => {
   applyPreset(p);
   $('#ed-suggest').innerHTML = '';
 });
+/* 이름만 보고 카테고리·보관일을 찍는다. 사전에 없는 이름이 전부 '기타'로 떨어지면
+   카테고리 색이 아무것도 구분해주지 못하기 때문이다.
+   확실한 순서: 사전 정확일치 → 끝말(요리 형태) → 앞말 떼고 재시도 → 사전 부분일치 */
+/* 코드가 들고 있는 원본 사전. 사용자가 쓰다가 늘어난 사전과 구분해야 한다 —
+   늘어난 쪽은 "그때 화면에 떠 있던 카테고리"가 그대로 굳은 것이라 틀렸을 수 있다. */
+const SEED_PRESETS = PRESETS.map(([name, cat, days]) => ({ name, cat, days }));
+const SEED_NAMES = new Set(SEED_PRESETS.map((p) => p.name));
+const normName = (v) => String(v || '').trim().replace(/\s+/g, '');
+
+/* 이름만 보고 카테고리·보관일을 찍는다. 사전에 없는 이름이 전부 '기타'로 떨어지면
+   카테고리 색이 아무것도 구분해주지 못하기 때문이다.
+   순서: 사전 정확일치 → 끝말(요리 형태) → 앞말 떼고 재시도 → 사전 부분일치
+   opts.seedOnly = 학습된 사전을 무시하고 원본 사전만 본다 (잘못 배운 것을 고칠 때) */
+function guessCategory(name, opts) {
+  const o = opts || {};
+  const dict = o.seedOnly ? SEED_PRESETS : S.presets;
+  const n = normName(name);
+  if (!n) return null;
+
+  const exact = dict.find((p) => normName(p.name) === n);
+  // '기타'로 저장된 것은 분류된 적이 없다는 뜻이라 믿지 않고 규칙으로 넘어간다
+  if (exact && exact.cat !== 'etc') {
+    return { cat: exact.cat, days: exact.days || CATEGORY_DAYS[exact.cat] || 7, why: 'preset' };
+  }
+
+  for (const [suf, cat, days] of NAME_SUFFIXES) {
+    if (n.endsWith(suf)) return { cat, days, why: 'suffix' };   // 이름이 끝말 그 자체여도 맞다 (「샐러드」「국」)
+  }
+
+  if (!o._depth) {
+    for (const pre of NAME_PREFIXES) {
+      if (n.length > pre.length && n.startsWith(pre)) {
+        const inner = guessCategory(n.slice(pre.length), { seedOnly: o.seedOnly, _depth: 1 });
+        if (inner) return inner;
+      }
+    }
+  }
+
+  /* 이름 안에 사전 재료가 들어 있으면 그걸 따른다 (「손질대파」 같은 경우).
+     짧은 이름이 우연히 걸리는 걸 막으려고 가장 긴 일치를 고른다. */
+  let best = null;
+  for (const p of dict) {
+    if (p.cat === 'etc') continue;
+    const pn = normName(p.name);
+    if (pn.length >= 2 && n.includes(pn) && (!best || pn.length > normName(best.name).length)) best = p;
+  }
+  if (best) return { cat: best.cat, days: best.days || CATEGORY_DAYS[best.cat] || 7, why: 'contains' };
+
+  return exact ? { cat: exact.cat, days: exact.days || 7, why: 'preset-etc' } : null;
+}
+
+/* 이미 들어와 있는 재료·사전 중 분류가 안 된 것을 규칙으로 다시 찍는다.
+   첫 등록 때는 추론이 없어서 화면에 떠 있던 카테고리가 그대로 굳었다.
+   원본 사전에 있는 이름은 손대지 않는다 — 그건 사람이 정한 값이다. */
+function repairCategories() {
+  let n = 0;
+  S.presets.forEach((p) => {
+    if (SEED_NAMES.has(p.name) || p.manual) return;   // 사람이 손으로 정한 것은 건드리지 않는다
+    const g = guessCategory(p.name, { seedOnly: true });
+    if (g && g.cat !== 'etc' && g.cat !== p.cat) { p.cat = g.cat; p.days = p.days || g.days; n++; }
+  });
+  S.items.forEach((it) => {
+    if (SEED_NAMES.has(it.name)) return;
+    if (S.presets.some((p) => p.name === it.name && p.manual)) return;
+    const g = guessCategory(it.name, { seedOnly: true });
+    if (g && g.cat !== 'etc' && g.cat !== it.categoryId) { it.categoryId = g.cat; n++; }
+  });
+  return n;
+}
+
+/* 이름을 칠 때마다 카테고리를 따라 바꾼다. 단, 반야님이 손으로 고른 뒤에는 건드리지 않는다 */
+function autoCategory() {
+  if (edit.catTouched) return;
+  const g = guessCategory($('#ed-name').value);
+  if (!g) return;
+  $('#ed-cat').value = g.cat;
+  const c = compById($('#ed-comp').value);
+  if (c && c.track === 'expiry' && !edit.dateTouched) $('#ed-date').value = addDays(today(), g.days || 7);
+}
+
 function applyPreset(p) {
   $('#ed-cat').value = p.cat;
   const c = compById($('#ed-comp').value);
@@ -415,6 +505,10 @@ $('#ed-save').addEventListener('click', () => {
     expiresAt: c.track === 'expiry' ? (dateVal || addDays(today(), 7)) : null,
   };
 
+  if (edit.catTouched) {
+    const p = S.presets.find((x) => x.name === name);
+    if (p) { p.cat = cat; p.manual = true; }
+  }
   if (edit.id) {
     const it = itemById(edit.id);
     if (it) Object.assign(it, base, { addedAt: c.track === 'elapsed' ? (dateVal || it.addedAt) : it.addedAt });
@@ -425,12 +519,16 @@ $('#ed-save').addEventListener('click', () => {
     // 사전에 없던 이름이면 추가 → 다음부터 자동완성
     if (!S.presets.some((p) => p.name === name)) {
       const days = c.track === 'expiry' && dateVal ? Math.max(1, diffDays(today(), dateVal)) : 7;
-      S.presets.push({ name, cat, days });
+      // '기타' 그대로 배우면 다음에도 '기타'로 뜬다. 규칙이 찍어주는 게 있으면 그걸 배운다
+      const g = cat === 'etc' ? guessCategory(name, { seedOnly: true }) : null;
+      S.presets.push({ name, cat: g && g.cat !== 'etc' ? g.cat : cat, days, manual: edit.catTouched || undefined });
     }
     toast(`${name} 넣음`);
     // 연속 등록: 폼만 비우고 같은 칸 유지
     $('#ed-name').value = ''; $('#ed-memo').value = ''; $('#ed-suggest').innerHTML = '';
+    $('#ed-cat').value = 'etc';        // 앞 재료의 카테고리가 다음 재료에 그대로 굳는 걸 막는다
     edit.dateTouched = false;
+    edit.catTouched = false;
     syncDateField(null);
     $('#ed-name').focus();
   }
@@ -826,6 +924,9 @@ function refresh() {
 /* 편집 중이면 화면을 갈아끼우지 않는다 (입력 중인 값이 날아가므로) */
 const busy = () => !$('#editor').hidden || !$('#actions').hidden;
 
+const fixedAtBoot = repairCategories();
+if (fixedAtBoot) save({ silent: true });
+
 show('home');
 checkBackupBanner();
 
@@ -866,6 +967,22 @@ function paintSync(st) {
 }
 Sync.onStatus(paintSync);
 paintSync(Sync.status());     // onStatus는 등록만 하고 바로 부르지 않는다. 첫 화면을 직접 칠한다
+
+/* 주소 끝에 #sync=… 가 붙어 오면 그걸로 시트에 연결하고, 주소에서 즉시 지운다.
+   기기마다 146자를 손으로 넣지 않으려는 장치다.
+
+   ⚠️ 왜 코드에 주소를 박지 않았나 — 이 앱은 공개 저장소(GitHub Pages)에 올라가 있어서
+   코드에 넣은 순간 토큰이 전 세계에 공개된다. 그래서 토큰은 코드가 아니라 링크가 나른다.
+   링크는 반야님만 갖고 있고, 한 번 열면 그 기기에 저장돼 다시 넣을 일이 없다. */
+(function connectFromLink() {
+  const m = /[?#&]sync=([^&]+)/.exec(location.href);
+  if (!m) return;
+  let url = '';
+  try { url = decodeURIComponent(m[1]); } catch (e) { url = m[1]; }
+  const ok = Sync.setUrl(url);
+  history.replaceState(null, '', location.pathname);   // 주소창·방문기록에 토큰을 남기지 않는다
+  toast(ok ? '시트에 연결했어요' : '연결 주소가 올바르지 않아요');
+})();
 
 if (Sync.configured()) {
   Sync.run({ silent: true });                       // 시작할 때 한 번
