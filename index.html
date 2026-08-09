@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141517" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="냉장고">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="style.css">
+<title>냉장고</title>
+</head>
+<body>
+
+<div id="backup-banner" class="banner" hidden></div>
+
+<!-- ===== 홈: 냉장고 ===== -->
+<section class="view" id="view-home">
+  <header class="app-head">
+    <div class="head-row">
+      <h1>냉장고</h1>
+      <button class="sync-dot" id="sync-dot" type="button" aria-label="시트 동기화" hidden></button>
+      <button class="icon-btn" id="btn-settings" aria-label="설정">⚙︎</button>
+    </div>
+    <button class="summary" id="summary" type="button"></button>
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tab-fridge" role="tab" data-unit="fridge">🧊 냉장고<span class="tab-count" id="count-fridge"></span></button>
+      <button class="tab" id="tab-freezer" role="tab" data-unit="freezer">❄️ 냉동고<span class="tab-count" id="count-freezer"></span></button>
+    </div>
+  </header>
+  <div class="scroll" id="unit-scroll"></div>
+</section>
+
+<!-- ===== 검색 ===== -->
+<section class="view" id="view-search" hidden>
+  <header class="app-head">
+    <div class="head-row"><h1>검색</h1></div>
+    <input type="search" id="search-input" placeholder="재료 이름" autocomplete="off" enterkeyhint="search">
+  </header>
+  <div class="scroll" id="search-results"></div>
+</section>
+
+<!-- ===== 살 것 ===== -->
+<section class="view" id="view-shopping" hidden>
+  <header class="app-head">
+    <div class="head-row">
+      <h1>살 것</h1>
+      <button class="text-btn" id="btn-clear-bought">산 것 비우기</button>
+    </div>
+    <form id="shopping-form" autocomplete="off">
+      <input type="text" id="shopping-input" placeholder="살 것 적기" enterkeyhint="done">
+    </form>
+  </header>
+  <div class="scroll" id="shopping-list"></div>
+</section>
+
+<!-- ===== 통계 ===== -->
+<section class="view" id="view-stats" hidden>
+  <header class="app-head">
+    <div class="head-row">
+      <h1>기록</h1>
+      <div class="month-nav">
+        <button class="icon-btn" id="stat-prev" aria-label="이전 달">‹</button>
+        <span id="stat-month"></span>
+        <button class="icon-btn" id="stat-next" aria-label="다음 달">›</button>
+      </div>
+    </div>
+  </header>
+  <div class="scroll" id="stats-body"></div>
+</section>
+
+<!-- ===== 설정 ===== -->
+<section class="view" id="view-settings" hidden>
+  <header class="app-head">
+    <div class="head-row">
+      <button class="text-btn" id="btn-settings-back">‹ 뒤로</button>
+      <h1>설정</h1>
+      <span style="width:44px"></span>
+    </div>
+  </header>
+  <div class="scroll" id="settings-body"></div>
+</section>
+
+<!-- ===== 하단 내비 ===== -->
+<nav class="tabbar" id="tabbar">
+  <button data-view="home" class="on"><span>🧊</span>냉장고</button>
+  <button data-view="search"><span>🔍</span>검색</button>
+  <button data-view="shopping"><span>🛒</span>살 것</button>
+  <button data-view="stats"><span>📊</span>기록</button>
+</nav>
+
+<!-- ===== 재료 등록/수정 오버레이 ===== -->
+<div class="overlay" id="editor" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <button class="text-btn" id="ed-cancel">취소</button>
+      <strong id="ed-title">재료 넣기</strong>
+      <button class="text-btn strong" id="ed-save">저장</button>
+    </div>
+    <div class="sheet-body">
+      <label class="field">
+        <span>재료</span>
+        <input type="text" id="ed-name" autocomplete="off" placeholder="예: 시금치" enterkeyhint="done">
+      </label>
+      <div id="ed-suggest" class="suggest"></div>
+
+      <label class="field">
+        <span>칸</span>
+        <select id="ed-comp"></select>
+      </label>
+
+      <label class="field" id="ed-date-field">
+        <span id="ed-date-label">언제까지</span>
+        <input type="date" id="ed-date">
+      </label>
+      <div class="quick-days" id="ed-quick"></div>
+
+      <label class="field">
+        <span>분류</span>
+        <select id="ed-cat"></select>
+      </label>
+
+      <details class="more">
+        <summary>메모</summary>
+        <input type="text" id="ed-memo" placeholder="예: 반 남음" autocomplete="off">
+      </details>
+
+      <p class="hint" id="ed-hint"></p>
+      <button class="danger-btn" id="ed-delete" hidden>이 재료 지우기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 액션 시트 ===== -->
+<div class="overlay bottom" id="actions" hidden>
+  <div class="action-sheet">
+    <div class="action-title" id="act-title"></div>
+    <button class="act" id="act-eaten">✓ 다 먹음</button>
+    <button class="act warn" id="act-discard">🗑 버림</button>
+    <button class="act" id="act-edit">수정</button>
+    <button class="act cancel" id="act-cancel">취소</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="data.js"></script>
+<script src="sync.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

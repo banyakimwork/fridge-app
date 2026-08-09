@@ -1,0 +1,96 @@
+/* 시드 데이터: 칸 구조 · 카테고리 팔레트 · 재료 사전
+   칸 구조는 2026-08-09 실물 사진 실측 (PRD §4.1) */
+
+const CATEGORIES = [
+  { id: 'vegetable', name: '채소',      h: 128, s: 45 },
+  { id: 'fruit',     name: '과일',      h:  20, s: 78 },
+  { id: 'meat',      name: '육류',      h: 352, s: 50 },
+  { id: 'seafood',   name: '수산',      h: 188, s: 48 },
+  { id: 'dairy',     name: '유제품',    h:  48, s: 55 },
+  { id: 'egg',       name: '계란',      h:  58, s: 85 },
+  { id: 'processed', name: '두부·가공', h:  28, s: 18 },
+  { id: 'sauce',     name: '소스·양념', h:  14, s: 40 },
+  { id: 'drink',     name: '음료',      h: 212, s: 55 },
+  { id: 'grain',     name: '밥·면·빵',  h:  35, s: 38 },
+  { id: 'side',      name: '반찬·국',   h: 318, s: 38 },
+  { id: 'etc',       name: '기타',      h: 220, s:  6 },
+];
+
+/* unit: fridge | freezer
+   kind: shelf | drawer | door
+   track: expiry(기한 카운트다운) | elapsed(경과일) | none(표시 없음) */
+const COMPARTMENTS = [
+  // ── 냉장고 본체 (선반 5 + 서랍 2)
+  { id: 'fridge-shelf-1',  unit: 'fridge', kind: 'shelf',  track: 'expiry',  label: '1번 선반' },
+  { id: 'fridge-shelf-2',  unit: 'fridge', kind: 'shelf',  track: 'expiry',  label: '2번 선반 · 와인랙' },
+  { id: 'fridge-shelf-3',  unit: 'fridge', kind: 'shelf',  track: 'expiry',  label: '3번 선반' },
+  { id: 'fridge-shelf-4',  unit: 'fridge', kind: 'shelf',  track: 'expiry',  label: '4번 선반' },
+  { id: 'fridge-shelf-5',  unit: 'fridge', kind: 'shelf',  track: 'expiry',  label: '5번 선반' },
+  { id: 'fridge-drawer-1', unit: 'fridge', kind: 'drawer', track: 'expiry',  label: '위 서랍' },
+  { id: 'fridge-drawer-2', unit: 'fridge', kind: 'drawer', track: 'expiry',  label: '아래 서랍' },
+  // ── 냉장고 도어 (포켓 5) — 기한 표시 없음
+  { id: 'fridge-door-1',   unit: 'fridge', kind: 'door',   track: 'none',    label: '도어 1' },
+  { id: 'fridge-door-2',   unit: 'fridge', kind: 'door',   track: 'none',    label: '도어 2' },
+  { id: 'fridge-door-3',   unit: 'fridge', kind: 'door',   track: 'none',    label: '도어 3' },
+  { id: 'fridge-door-4',   unit: 'fridge', kind: 'door',   track: 'none',    label: '도어 4' },
+  { id: 'fridge-door-5',   unit: 'fridge', kind: 'door',   track: 'none',    label: '도어 5' },
+  // ── 냉동고 (선반 3 + 서랍 4), 도어 포켓 없음
+  { id: 'freezer-shelf-1',  unit: 'freezer', kind: 'shelf',  track: 'elapsed', label: '1번 선반' },
+  { id: 'freezer-shelf-2',  unit: 'freezer', kind: 'shelf',  track: 'elapsed', label: '2번 선반 · 제빙기' },
+  { id: 'freezer-shelf-3',  unit: 'freezer', kind: 'shelf',  track: 'elapsed', label: '3번 선반' },
+  { id: 'freezer-drawer-1', unit: 'freezer', kind: 'drawer', track: 'elapsed', label: '1번 서랍' },
+  { id: 'freezer-drawer-2', unit: 'freezer', kind: 'drawer', track: 'elapsed', label: '2번 서랍' },
+  { id: 'freezer-drawer-3', unit: 'freezer', kind: 'drawer', track: 'elapsed', label: '3번 서랍' },
+  { id: 'freezer-drawer-4', unit: 'freezer', kind: 'drawer', track: 'elapsed', label: '4번 서랍' },
+];
+
+/* [이름, 카테고리, 냉장 기준 통상 보관일] */
+const PRESETS = [
+  // 채소
+  ['시금치','vegetable',5],['상추','vegetable',5],['양배추','vegetable',14],['대파','vegetable',10],
+  ['쪽파','vegetable',7],['양파','vegetable',21],['마늘','vegetable',30],['다진마늘','vegetable',14],
+  ['당근','vegetable',21],['감자','vegetable',30],['고구마','vegetable',21],['애호박','vegetable',7],
+  ['오이','vegetable',7],['가지','vegetable',7],['파프리카','vegetable',10],['피망','vegetable',10],
+  ['방울토마토','vegetable',7],['토마토','vegetable',7],['브로콜리','vegetable',7],['버섯','vegetable',7],
+  ['느타리버섯','vegetable',5],['팽이버섯','vegetable',7],['새송이버섯','vegetable',10],['부추','vegetable',5],
+  ['깻잎','vegetable',7],['청경채','vegetable',5],['배추','vegetable',14],['무','vegetable',21],
+  ['콩나물','vegetable',3],['숙주','vegetable',3],['셀러리','vegetable',10],['아스파라거스','vegetable',5],
+  ['생강','vegetable',21],['고추','vegetable',10],['아보카도','vegetable',5],
+  // 과일
+  ['사과','fruit',21],['배','fruit',14],['바나나','fruit',5],['딸기','fruit',4],
+  ['포도','fruit',7],['블루베리','fruit',7],['오렌지','fruit',14],['레몬','fruit',21],
+  ['키위','fruit',10],['복숭아','fruit',5],['참외','fruit',7],['수박','fruit',5],
+  ['샤인머스캣','fruit',7],['귤','fruit',10],['망고','fruit',5],
+  // 육류
+  ['삼겹살','meat',3],['목살','meat',3],['앞다리살','meat',3],['소고기','meat',3],
+  ['다짐육','meat',2],['닭가슴살','meat',3],['닭다리','meat',3],['닭한마리','meat',2],
+  ['베이컨','meat',7],['소시지','meat',14],['햄','meat',10],['오리고기','meat',3],
+  // 수산
+  ['새우','seafood',2],['연어','seafood',2],['고등어','seafood',2],['오징어','seafood',2],
+  ['조개','seafood',2],['멸치','seafood',30],['명란젓','seafood',14],['어묵','seafood',7],
+  // 유제품
+  ['우유','dairy',7],['저지방우유','dairy',7],['두유','dairy',10],['요거트','dairy',10],
+  ['그릭요거트','dairy',10],['치즈','dairy',21],['모짜렐라','dairy',10],['버터','dairy',60],
+  ['생크림','dairy',7],['크림치즈','dairy',14],['사워크림','dairy',14],
+  // 계란
+  ['계란','egg',21],['메추리알','egg',14],['삶은계란','egg',5],
+  // 두부·가공
+  ['두부','processed',5],['순두부','processed',5],['유부','processed',10],['만두','processed',7],
+  ['떡','processed',5],['어묵바','processed',7],['맛살','processed',14],['콩나물무침','processed',3],
+  // 소스·양념
+  ['간장','sauce',180],['고추장','sauce',180],['된장','sauce',180],['쌈장','sauce',120],
+  ['참기름','sauce',180],['들기름','sauce',120],['식초','sauce',365],['맛술','sauce',180],
+  ['굴소스','sauce',180],['마요네즈','sauce',90],['케찹','sauce',180],['머스타드','sauce',180],
+  ['스리라차','sauce',180],['올리브오일','sauce',180],['잼','sauce',90],['꿀','sauce',365],
+  ['메이플시럽','sauce',180],['액젓','sauce',365],['다시다','sauce',365],['후추','sauce',365],
+  // 음료
+  ['생수','drink',180],['탄산수','drink',180],['맥주','drink',120],['와인','drink',30],
+  ['주스','drink',10],['커피','drink',7],['콜라','drink',120],['막걸리','drink',10],
+  // 밥·면·빵
+  ['밥','grain',3],['식빵','grain',5],['바게트','grain',3],['국수','grain',180],
+  ['냉면','grain',30],['우동면','grain',14],['또띠아','grain',30],['크로와상','grain',3],
+  // 반찬·국
+  ['김치','side',90],['깍두기','side',60],['나물','side',3],['장조림','side',10],
+  ['멸치볶음','side',14],['된장국','side',3],['미역국','side',3],['카레','side',4],
+  ['불고기','side',3],['잡채','side',3],
+];
