@@ -600,6 +600,16 @@ function fmtAgo(iso) {
   return `${Math.floor(m / 1440)}일 전`;
 }
 
+/* 헤더 단추에 쓸 짧은 말. 좁은 폭에 들어가야 하니 한눈에 읽히는 최소한만. */
+function syncBtnLabel(st) {
+  if (!st.url) return '시트 연결';
+  if (st.state === 'syncing') return '맞추는 중';
+  if (st.state === 'error') return '실패';
+  if (st.state === 'offline') return '오프라인';
+  if (st.dirty) return `동기화 ${st.dirty}`;
+  return '동기화';
+}
+
 function syncStatusLine() {
   const st = Sync.status();
   if (!st.url) return '연결 안 됨 · 지금은 이 기기에만 저장됩니다';
@@ -841,16 +851,21 @@ document.addEventListener('visibilitychange', () => {
 
 /* ---------------- 시트 동기화 트리거 ----------------
    기기가 하나뿐이어도 시트에서 손으로 고칠 수 있으니 열 때마다 받아온다. */
-Sync.onStatus((st) => {
+function paintSync(st) {
   const line = $('#s-sync-status');
   if (line) line.textContent = syncStatusLine();
   const dot = $('#sync-dot');
   if (dot) {
-    dot.hidden = !st.url;
-    dot.className = 'sync-dot ' + st.state + (st.dirty ? ' dirty' : '');
+    /* 연결 안 됐을 때도 보여준다 — 안 보이면 어디서 연결하는지 알 길이 없다.
+       그때는 눌러서 설정으로 보낸다. */
+    dot.className = 'sync-btn ' + (st.url ? st.state : 'off') + (st.dirty ? ' dirty' : '');
     dot.title = syncStatusLine();
+    const label = $('#sync-label');
+    if (label) label.textContent = syncBtnLabel(st);
   }
-});
+}
+Sync.onStatus(paintSync);
+paintSync(Sync.status());     // onStatus는 등록만 하고 바로 부르지 않는다. 첫 화면을 직접 칠한다
 
 if (Sync.configured()) {
   Sync.run({ silent: true });                       // 시작할 때 한 번

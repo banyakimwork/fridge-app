@@ -62,22 +62,31 @@ h1 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
 .head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; }
 .head-row h1 { margin-right: auto; }
 
-/* 시트 동기화 표시등. 정상일 때는 눈에 안 띄게, 문제일 때만 색이 붙는다 */
-.sync-dot {
-  width: 34px; height: 34px; flex: 0 0 34px; position: relative;
-  border-radius: 50%; background: transparent;
+/* 시트 동기화 단추. 냉장고·냉동고 화면 최상단에서 한 번에 누를 수 있어야 해서
+   점 하나가 아니라 글자가 붙은 알약으로 둔다. 상태는 왼쪽 점 색으로 말한다. */
+.sync-btn {
+  display: flex; align-items: center; gap: 6px;
+  min-height: 34px; padding: 0 11px 0 9px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--card); color: var(--fg-2);
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  transition: background .15s, border-color .15s, color .15s;
 }
-.sync-dot[hidden] { display: none; }
-.sync-dot::before {
-  content: ''; position: absolute; inset: 0; margin: auto;
-  width: 8px; height: 8px; border-radius: 50%;
+.sync-btn[hidden] { display: none; }
+.sync-btn:active { background: var(--line); }
+.sync-mark {
+  width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%;
   background: var(--fg-3); opacity: .45; transition: background .2s, opacity .2s;
 }
-.sync-dot.syncing::before { background: var(--accent); opacity: 1; animation: dotpulse 1s ease-in-out infinite; }
-.sync-dot.error::before { background: var(--danger); opacity: 1; }
-.sync-dot.offline::before { background: var(--fg-3); opacity: .8; }
-.sync-dot.dirty::before { background: var(--warn); opacity: 1; }
-.sync-dot.error.dirty::before { background: var(--danger); opacity: 1; }
+.sync-btn.syncing .sync-mark { background: var(--accent); opacity: 1; animation: dotpulse 1s ease-in-out infinite; }
+.sync-btn.error .sync-mark { background: var(--danger); opacity: 1; }
+.sync-btn.offline .sync-mark { background: var(--fg-3); opacity: .8; }
+.sync-btn.dirty .sync-mark { background: var(--warn); opacity: 1; }
+.sync-btn.error.dirty .sync-mark { background: var(--danger); opacity: 1; }
+/* 손봐야 하는 상태만 색이 번진다 — 정상일 때는 조용히 */
+.sync-btn.dirty { border-color: var(--warn); color: var(--warn); }
+.sync-btn.error { border-color: var(--danger); color: var(--danger); }
+.sync-btn.off { border-style: dashed; }
 @keyframes dotpulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.55); opacity: .45; } }
 .icon-btn { width: 44px; height: 44px; font-size: 20px; color: var(--fg-2); }
 .text-btn { min-height: 44px; padding: 0 4px; color: var(--accent); font-size: 15px; }
