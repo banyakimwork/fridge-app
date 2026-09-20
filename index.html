@@ -34,6 +34,14 @@
   <div class="scroll" id="unit-scroll"></div>
 </section>
 
+<!-- ===== 메뉴 추천 ===== -->
+<section class="view" id="view-menu" hidden>
+  <header class="app-head">
+    <div class="head-row"><h1>뭐 해먹지</h1></div>
+  </header>
+  <div class="scroll" id="menu-body"></div>
+</section>
+
 <!-- ===== 검색 ===== -->
 <section class="view" id="view-search" hidden>
   <header class="app-head">
@@ -87,6 +95,7 @@
 <!-- ===== 하단 내비 ===== -->
 <nav class="tabbar" id="tabbar">
   <button data-view="home" class="on"><span>🧊</span>냉장고</button>
+  <button data-view="menu"><span>🍳</span>뭐 해먹지</button>
   <button data-view="search"><span>🔍</span>검색</button>
   <button data-view="shopping"><span>🛒</span>살 것</button>
   <button data-view="stats"><span>📊</span>기록</button>
@@ -150,5 +159,6 @@
 <script src="data.js"></script>
 <script src="sync.js"></script>
 <script src="app.js"></script>
+<script src="menu.js"></script>
 </body>
 </html>

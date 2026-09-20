@@ -98,7 +98,7 @@ let filtering = false;
 
 function show(view) {
   currentView = view;
-  ['home', 'search', 'shopping', 'stats', 'settings'].forEach((v) => {
+  ['home', 'menu', 'search', 'shopping', 'stats', 'settings'].forEach((v) => {
     $('#view-' + v).hidden = v !== view;
   });
   document.querySelectorAll('#tabbar button').forEach((b) => {
@@ -106,6 +106,8 @@ function show(view) {
   });
   $('#tabbar').hidden = false;
   if (view === 'home') renderHome();
+  // menu.js는 app.js 뒤에 로드된다. 부팅 직후 첫 show()가 지나갈 수 있어 가드를 둔다
+  if (view === 'menu' && typeof renderMenu === 'function') renderMenu();
   if (view === 'search') { renderSearch(); setTimeout(() => $('#search-input').focus(), 60); }
   if (view === 'shopping') renderShopping();
   if (view === 'stats') renderStats();
