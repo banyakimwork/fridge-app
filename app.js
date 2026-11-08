@@ -90,6 +90,10 @@ function badgeState(item) {
   return { cls: '', tag, level: 0 };
 }
 const unitOf = (item) => (compById(item.compartmentId) || {}).unit;
+const unitById = (id) => UNITS.find((u) => u.id === id) || UNITS[0];
+const unitTitle = (id) => { const u = unitById(id); return `${u.icon} ${u.name}`; };
+/* 팬트리는 실온이라 냉장 기준 보관일(양파 21일 등)로 날짜를 미리 채우지 않는다 */
+const isPantry = (c) => !!c && c.unit === 'pantry';
 
 /* ---------------- 화면 전환 ---------------- */
 let currentView = 'home';
@@ -132,9 +136,8 @@ function unitCounts(unit) {
 
 function renderHome() {
   // 탭
-  $('#tab-fridge').classList.toggle('on', currentUnit === 'fridge');
-  $('#tab-freezer').classList.toggle('on', currentUnit === 'freezer');
-  ['fridge', 'freezer'].forEach((u) => {
+  UNITS.forEach(({ id: u }) => {
+    $('#tab-' + u).classList.toggle('on', currentUnit === u);
     const { warn, bad, total } = unitCounts(u);
     const el = $('#count-' + u);
     el.textContent = total ? total : '';
@@ -164,8 +167,12 @@ function renderHome() {
   const list = comps().filter((c) => c.unit === currentUnit);
   const body = list.filter((c) => c.kind !== 'door');
   const doors = list.filter((c) => c.kind === 'door');
+  const unit = unitById(currentUnit);
   let html = '';
-  if (doors.length) {
+  if (unit.cols) {
+    /* 가로로 나란히 (팬트리 1행 3열). 칸 이름이 곧 위치라 「본체」 라벨은 안 단다 */
+    html += `<div class="row-grid" style="--cols:${unit.cols}">${list.map(compHTML).join('')}</div>`;
+  } else if (doors.length) {
     /* 도어가 있는 유닛(냉장고)은 본체·도어를 좌우 2그리드로 나눈다.
        도어 칸이 세로로 길게 이어지면 스크롤을 한참 내려야 "간장 있나"를 확인할 수 있어서,
        폭이 좁아지는 걸 감수하고 한 화면에 둘 다 보이게 한다. */
@@ -179,11 +186,12 @@ function renderHome() {
 
   const totalHere = S.items.filter((i) => unitOf(i) === currentUnit).length;
   if (totalHere === 0 && !filtering) {
-    const other = currentUnit === 'fridge' ? 'freezer' : 'fridge';
-    const otherN = S.items.filter((i) => unitOf(i) === other).length;
+    const elsewhere = UNITS.filter((u) => u.id !== currentUnit)
+      .map((u) => ({ u, n: S.items.filter((i) => unitOf(i) === u.id).length }))
+      .filter((x) => x.n);
     html += `<div class="empty">
-      <b>${currentUnit === 'fridge' ? '냉장고' : '냉동고'}가 비어 있어요</b>
-      ${otherN ? `${other === 'fridge' ? '냉장고' : '냉동고'}에는 ${otherN}개 있어요` : '칸의 + 를 눌러 첫 재료를 넣어보세요'}
+      <b>${unit.name}가 비어 있어요</b>
+      ${elsewhere.length ? elsewhere.map((x) => `${x.u.name}에는 ${x.n}개`).join(' · ') + ' 있어요' : '칸의 + 를 눌러 첫 재료를 넣어보세요'}
     </div>`;
   }
   $('#unit-scroll').innerHTML = html;
@@ -222,10 +230,9 @@ $('#summary').addEventListener('click', () => {
   filtering = !filtering;
   renderHome();
 });
-$('#tab-fridge').addEventListener('click', () => switchUnit('fridge'));
-$('#tab-freezer').addEventListener('click', () => switchUnit('freezer'));
+UNITS.forEach(({ id }) => $('#tab-' + id).addEventListener('click', () => switchUnit(id)));
 function switchUnit(u) {
-  if (currentUnit === u) return;
+  if (!u || currentUnit === u) return;
   currentUnit = u;
   S.settings.lastUnit = u; save();
   renderHome();
@@ -245,7 +252,12 @@ function switchUnit(u) {
     const t = e.changedTouches[0];
     const dx = t.clientX - x0, dy = t.clientY - y0;
     x0 = null;
-    if (Math.abs(dx) > 65 && Math.abs(dy) < 45) switchUnit(dx < 0 ? 'freezer' : 'fridge');
+    if (Math.abs(dx) > 65 && Math.abs(dy) < 45) {
+      // 왼쪽으로 밀면 다음 탭, 오른쪽으로 밀면 이전 탭 (끝에서는 멈춘다)
+      const i = UNITS.findIndex((x) => x.id === currentUnit);
+      const next = UNITS[i + (dx < 0 ? 1 : -1)];
+      if (next) switchUnit(next.id);
+    }
   }, { passive: true });
 })();
 
@@ -320,8 +332,8 @@ function openEditor({ id = null, compartmentId = null } = {}) {
 
   // 칸 select
   const sel = $('#ed-comp');
-  sel.innerHTML = ['fridge', 'freezer'].map((u) =>
-    `<optgroup label="${u === 'fridge' ? '🧊 냉장고' : '❄️ 냉동고'}">` +
+  sel.innerHTML = UNITS.map(({ id: u }) =>
+    `<optgroup label="${unitTitle(u)}">` +
     comps().filter((c) => c.unit === u)
       .map((c) => `<option value="${c.id}">${esc(compLabel(c))}</option>`).join('') +
     `</optgroup>`).join('');
@@ -354,7 +366,16 @@ function syncDateField(it) {
     return;
   }
   field.hidden = false; quick.hidden = false;
-  if (c.track === 'expiry') {
+  if (isPantry(c)) {
+    /* 실온 보관. 기한은 비워둬도 된다 — 비어 있으면 꼬리표 없이 「있다」만 보여준다 */
+    $('#ed-date-label').textContent = '유통기한 (선택)';
+    $('#ed-date').value = it ? (it.expiresAt || '') : '';
+    quick.innerHTML =
+      `<button type="button" data-clear="1">기한 없음</button>`
+      + [[7, '+1주'], [30, '+1달'], [90, '+3달'], [180, '+6달'], [365, '+1년']]
+        .map(([n, t]) => `<button type="button" data-days="${n}">${t}</button>`).join('');
+    $('#ed-hint').textContent = '팬트리는 실온이라 기한을 비워둬도 됩니다. 빵·바나나처럼 금방 상하는 것만 날짜를 넣으면 임박할 때 꼬리표가 붙어요.';
+  } else if (c.track === 'expiry') {
     $('#ed-date-label').textContent = '언제까지';
     $('#ed-date').value = it ? (it.expiresAt || addDays(today(), 7)) : ($('#ed-date').value || addDays(today(), 7));
     /* 「오늘」은 오늘까지 먹어야 하는 것, 「연말까지」는 사실상 안 상하는 것(소스·술 따위).
@@ -375,9 +396,9 @@ function syncDateField(it) {
 $('#ed-comp').addEventListener('change', () => { edit.dateTouched = false; syncDateField(edit.id ? itemById(edit.id) : null); });
 $('#ed-date').addEventListener('input', () => { edit.dateTouched = true; });
 $('#ed-quick').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-days],[data-date]');
+  const b = e.target.closest('[data-days],[data-date],[data-clear]');
   if (!b) return;
-  $('#ed-date').value = b.dataset.date ? b.dataset.date : addDays(today(), Number(b.dataset.days));
+  $('#ed-date').value = b.dataset.clear ? '' : b.dataset.date ? b.dataset.date : addDays(today(), Number(b.dataset.days));
   edit.dateTouched = true;
   $('#ed-quick').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
 });
@@ -483,13 +504,13 @@ function autoCategory() {
   if (!g) return;
   $('#ed-cat').value = g.cat;
   const c = compById($('#ed-comp').value);
-  if (c && c.track === 'expiry' && !edit.dateTouched) $('#ed-date').value = addDays(today(), g.days || 7);
+  if (c && c.track === 'expiry' && !isPantry(c) && !edit.dateTouched) $('#ed-date').value = addDays(today(), g.days || 7);
 }
 
 function applyPreset(p) {
   $('#ed-cat').value = p.cat;
   const c = compById($('#ed-comp').value);
-  if (c && c.track === 'expiry' && !edit.dateTouched) $('#ed-date').value = addDays(today(), p.days || 7);
+  if (c && c.track === 'expiry' && !isPantry(c) && !edit.dateTouched) $('#ed-date').value = addDays(today(), p.days || 7);
 }
 
 $('#ed-save').addEventListener('click', () => {
@@ -504,7 +525,7 @@ $('#ed-save').addEventListener('click', () => {
   const base = {
     name, categoryId: cat, compartmentId: compId, memo,
     addedAt: c.track === 'elapsed' ? (dateVal || today()) : today(),
-    expiresAt: c.track === 'expiry' ? (dateVal || addDays(today(), 7)) : null,
+    expiresAt: c.track === 'expiry' ? (dateVal || (isPantry(c) ? null : addDays(today(), 7))) : null,
   };
 
   if (edit.catTouched) {
@@ -520,7 +541,8 @@ $('#ed-save').addEventListener('click', () => {
     S.items.push(Object.assign({ id: uid() }, base));
     // 사전에 없던 이름이면 추가 → 다음부터 자동완성
     if (!S.presets.some((p) => p.name === name)) {
-      const days = c.track === 'expiry' && dateVal ? Math.max(1, diffDays(today(), dateVal)) : 7;
+      // 팬트리 기한(몇 달)을 사전에 배우면 같은 이름을 냉장고에 넣을 때 엉뚱한 날짜가 뜬다
+      const days = c.track === 'expiry' && !isPantry(c) && dateVal ? Math.max(1, diffDays(today(), dateVal)) : 7;
       // '기타' 그대로 배우면 다음에도 '기타'로 뜬다. 규칙이 찍어주는 게 있으면 그걸 배운다
       const g = cat === 'etc' ? guessCategory(name, { seedOnly: true }) : null;
       S.presets.push({ name, cat: g && g.cat !== 'etc' ? g.cat : cat, days, manual: edit.catTouched || undefined });
@@ -577,7 +599,7 @@ function renderSearch() {
       <span class="badge ${st.cls}" data-item="${it.id}" style="--h:${cat.h};--s:${cat.s}%">
         ${esc(it.name)}${st.tag ? `<span class="tag">${st.tag}</span>` : ''}
       </span>
-      <div class="grow"><div class="where">${c ? (c.unit === 'fridge' ? '🧊 냉장고' : '❄️ 냉동고') + ' · ' + esc(compLabel(c)) : ''}</div></div>
+      <div class="grow"><div class="where">${c ? unitTitle(c.unit) + ' · ' + esc(compLabel(c)) : ''}</div></div>
       <button class="text-btn" data-goto="${it.id}">보기 ›</button>
     </div>`;
   }).join('');
@@ -759,9 +781,9 @@ function renderSettings() {
 
     <div class="set-group">
       <h2>칸 이름</h2>
-      ${['fridge', 'freezer'].map((u) => comps().filter((c) => c.unit === u).map((c) => `
+      ${UNITS.map(({ id: u, icon }) => comps().filter((c) => c.unit === u).map((c) => `
         <div class="set-item">
-          <div style="flex:0 0 76px;font-size:12px;color:var(--fg-3)">${u === 'fridge' ? '🧊' : '❄️'} ${c.kind === 'door' ? '도어' : c.kind === 'drawer' ? '서랍' : '선반'}</div>
+          <div style="flex:0 0 76px;font-size:12px;color:var(--fg-3)">${icon} ${u === 'pantry' ? '팬트리' : c.kind === 'door' ? '도어' : c.kind === 'drawer' ? '서랍' : '선반'}</div>
           <input type="text" data-label="${c.id}" value="${esc(compLabel(c))}">
         </div>`).join('')).join('')}
     </div>

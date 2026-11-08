@@ -19,6 +19,7 @@ const MENU_SCOPES = [
   { id: 'soon',    label: '급한 것만' },
   { id: 'fridge',  label: '냉장고만' },
   { id: 'freezer', label: '냉동고만' },
+  { id: 'pantry',  label: '팬트리만' },
 ];
 
 const MENU_SERVES = [
@@ -58,6 +59,7 @@ function menuRows() {
   if (menuPick.scope === 'soon')    return rows.filter((r) => r.st.level >= 1);
   if (menuPick.scope === 'fridge')  return rows.filter((r) => r.unit === 'fridge');
   if (menuPick.scope === 'freezer') return rows.filter((r) => r.unit === 'freezer');
+  if (menuPick.scope === 'pantry')  return rows.filter((r) => r.unit === 'pantry');
   return rows;
 }
 
@@ -81,7 +83,7 @@ function menuBlock(rows, title) {
   if (!rows.length) return '';
   const byCat = new Map();
   rows.forEach((r) => {
-    const name = catById(r.it.category).name;
+    const name = catById(r.it.categoryId).name;   // 재료의 필드명은 categoryId (category 아님)
     if (!byCat.has(name)) byCat.set(name, []);
     byCat.get(name).push(r);
   });
@@ -104,9 +106,12 @@ function buildMenuText() {
   if (!rows.length) return '';
   const fridge  = rows.filter((r) => r.unit === 'fridge');
   const freezer = rows.filter((r) => r.unit === 'freezer');
+  const pantry  = rows.filter((r) => r.unit === 'pantry');
   const d = new Date();
   const stamp = `${d.getMonth() + 1}월 ${d.getDate()}일 기준`;
-  const inv = [menuBlock(fridge, `냉장고 · ${stamp}`), menuBlock(freezer, '냉동고')].filter(Boolean).join('\n\n');
+  const blocks = [[fridge, '냉장고'], [freezer, '냉동고'], [pantry, '팬트리 (실온)']].filter(([arr]) => arr.length);
+  // 날짜 도장은 첫 블록에만 붙인다 (냉장고가 비어 있어도 기준일이 빠지지 않게)
+  const inv = blocks.map(([arr, t], i) => menuBlock(arr, i === 0 ? `${t} · ${stamp}` : t)).join('\n\n');
   if (menuPick.rawOnly) return inv;
 
   const style  = MENU_STYLES.find((s) => s.id === menuPick.style) || MENU_STYLES[0];

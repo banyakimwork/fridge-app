@@ -16,9 +16,19 @@ const CATEGORIES = [
   { id: 'etc',       name: '기타',      h: 220, s:  6 },
 ];
 
-/* unit: fridge | freezer
+/* 상단 탭 순서 = 이 배열 순서 (좌우 스와이프도 이 순서로 넘어간다).
+   cols가 있으면 칸을 가로로 그만큼 나란히 놓는다 — 팬트리는 1행 3열. */
+const UNITS = [
+  { id: 'fridge',  name: '냉장고', icon: '🧊' },
+  { id: 'freezer', name: '냉동고', icon: '❄️' },
+  { id: 'pantry',  name: '팬트리', icon: '🥫', cols: 3 },
+];
+
+/* unit: fridge | freezer | pantry
    kind: shelf | drawer | door
-   track: expiry(기한 카운트다운) | elapsed(경과일) | none(표시 없음) */
+   track: expiry(기한 카운트다운) | elapsed(경과일) | none(표시 없음)
+   팬트리는 expiry지만 기한이 비어 있어도 된다 — 실온 보관이라 대부분 몇 달을 가고,
+   빵·바나나처럼 금방 상하는 것만 날짜를 넣으면 그때부터 꼬리표가 붙는다. */
 const COMPARTMENTS = [
   // ── 냉장고 본체 (선반 5 + 서랍 2)
   { id: 'fridge-shelf-1',  unit: 'fridge', kind: 'shelf',  track: 'expiry',  label: '1번 선반' },
@@ -42,6 +52,10 @@ const COMPARTMENTS = [
   { id: 'freezer-drawer-2', unit: 'freezer', kind: 'drawer', track: 'elapsed', label: '2번 서랍' },
   { id: 'freezer-drawer-3', unit: 'freezer', kind: 'drawer', track: 'elapsed', label: '3번 서랍' },
   { id: 'freezer-drawer-4', unit: 'freezer', kind: 'drawer', track: 'elapsed', label: '4번 서랍' },
+  // ── 팬트리 (실온, 1행 3칸) — 2026-11-08 추가
+  { id: 'pantry-shelf-1',   unit: 'pantry',  kind: 'shelf',  track: 'expiry',  label: '1칸' },
+  { id: 'pantry-shelf-2',   unit: 'pantry',  kind: 'shelf',  track: 'expiry',  label: '2칸' },
+  { id: 'pantry-shelf-3',   unit: 'pantry',  kind: 'shelf',  track: 'expiry',  label: '3칸' },
 ];
 
 /* [이름, 카테고리, 냉장 기준 통상 보관일] */
