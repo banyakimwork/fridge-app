@@ -1,5 +1,5 @@
 /* 앱 셸 캐시 — 오프라인 실행용. 데이터는 캐시하지 않는다(localStorage에만 있음). */
-const CACHE = 'fridge-shell-v7';
+const CACHE = 'fridge-shell-v8';
 const SHELL = [
   './', './index.html', './style.css', './data.js', './sync.js', './app.js', './menu.js', './manifest.json',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',

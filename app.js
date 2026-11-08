@@ -169,9 +169,9 @@ function renderHome() {
   const doors = list.filter((c) => c.kind === 'door');
   const unit = unitById(currentUnit);
   let html = '';
-  if (unit.cols) {
-    /* 가로로 나란히 (팬트리 1행 3열). 칸 이름이 곧 위치라 「본체」 라벨은 안 단다 */
-    html += `<div class="row-grid" style="--cols:${unit.cols}">${list.map(compHTML).join('')}</div>`;
+  if (currentUnit === 'pantry') {
+    /* 1열 3단 — 위에서 아래로 쌓는다. 본체·도어 구분이 없으니 「본체」 라벨은 안 단다 */
+    html += list.map(compHTML).join('');
   } else if (doors.length) {
     /* 도어가 있는 유닛(냉장고)은 본체·도어를 좌우 2그리드로 나눈다.
        도어 칸이 세로로 길게 이어지면 스크롤을 한참 내려야 "간장 있나"를 확인할 수 있어서,

@@ -17,11 +17,11 @@ const CATEGORIES = [
 ];
 
 /* 상단 탭 순서 = 이 배열 순서 (좌우 스와이프도 이 순서로 넘어간다).
-   cols가 있으면 칸을 가로로 그만큼 나란히 놓는다 — 팬트리는 1행 3열. */
+   팬트리는 칸 3개를 위에서 아래로 쌓는다 (1열 3단, 폭은 화면 전체). */
 const UNITS = [
   { id: 'fridge',  name: '냉장고', icon: '🧊' },
   { id: 'freezer', name: '냉동고', icon: '❄️' },
-  { id: 'pantry',  name: '팬트리', icon: '🥫', cols: 3 },
+  { id: 'pantry',  name: '팬트리', icon: '🥫' },
 ];
 
 /* unit: fridge | freezer | pantry
@@ -52,7 +52,7 @@ const COMPARTMENTS = [
   { id: 'freezer-drawer-2', unit: 'freezer', kind: 'drawer', track: 'elapsed', label: '2번 서랍' },
   { id: 'freezer-drawer-3', unit: 'freezer', kind: 'drawer', track: 'elapsed', label: '3번 서랍' },
   { id: 'freezer-drawer-4', unit: 'freezer', kind: 'drawer', track: 'elapsed', label: '4번 서랍' },
-  // ── 팬트리 (실온, 1행 3칸) — 2026-11-08 추가
+  // ── 팬트리 (실온, 위에서부터 1~3칸 세로로 쌓음) — 2026-11-08 추가
   { id: 'pantry-shelf-1',   unit: 'pantry',  kind: 'shelf',  track: 'expiry',  label: '1칸' },
   { id: 'pantry-shelf-2',   unit: 'pantry',  kind: 'shelf',  track: 'expiry',  label: '2칸' },
   { id: 'pantry-shelf-3',   unit: 'pantry',  kind: 'shelf',  track: 'expiry',  label: '3칸' },
